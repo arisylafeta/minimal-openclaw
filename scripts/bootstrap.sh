@@ -77,6 +77,16 @@ fi
 if [ "$NEED_GENERATE" = true ]; then
     echo "🏥 Generating openclaw.json..."
     
+    # Determine primary model based on available API keys
+    PRIMARY_MODEL="openai/gpt-4o"
+    if [ -n "$ANTHROPIC_API_KEY" ]; then
+        PRIMARY_MODEL="anthropic/claude-sonnet-4-5"
+    elif [ -n "$OPENAI_API_KEY" ]; then
+        PRIMARY_MODEL="openai/gpt-4o"
+    elif [ -n "$GEMINI_API_KEY" ]; then
+        PRIMARY_MODEL="google/gemini-2.5-pro"
+    fi
+    
     # Write JSON directly without heredoc to avoid any expansion issues
     echo '{' > "$CONFIG_FILE"
     echo '  "commands": {' >> "$CONFIG_FILE"
@@ -85,13 +95,14 @@ if [ "$NEED_GENERATE" = true ]; then
     echo '    "bash": true,' >> "$CONFIG_FILE"
     echo '    "config": true' >> "$CONFIG_FILE"
     echo '  },' >> "$CONFIG_FILE"
+    echo '  "channels": {' >> "$CONFIG_FILE"
+    echo '    "telegram": {' >> "$CONFIG_FILE"
+    echo '      "enabled": true' >> "$CONFIG_FILE"
+    echo '    }' >> "$CONFIG_FILE"
+    echo '  },' >> "$CONFIG_FILE"
     echo '  "plugins": {' >> "$CONFIG_FILE"
     echo '    "enabled": true,' >> "$CONFIG_FILE"
-    echo '    "entries": {' >> "$CONFIG_FILE"
-    echo '      "telegram": {' >> "$CONFIG_FILE"
-    echo '        "enabled": true' >> "$CONFIG_FILE"
-    echo '      }' >> "$CONFIG_FILE"
-    echo '    }' >> "$CONFIG_FILE"
+    echo '    "entries": {}' >> "$CONFIG_FILE"
     echo '  },' >> "$CONFIG_FILE"
     echo '  "gateway": {' >> "$CONFIG_FILE"
     echo "    \"port\": $GATEWAY_PORT," >> "$CONFIG_FILE"
@@ -102,6 +113,7 @@ if [ "$NEED_GENERATE" = true ]; then
     echo '  "agents": {' >> "$CONFIG_FILE"
     echo '    "defaults": {' >> "$CONFIG_FILE"
     echo "      \"workspace\": \"${WORKSPACE_DIR}\"," >> "$CONFIG_FILE"
+    echo "      \"model\": { \"primary\": \"${PRIMARY_MODEL}\" }," >> "$CONFIG_FILE"
     echo '      "maxConcurrent": 2' >> "$CONFIG_FILE"
     echo '    },' >> "$CONFIG_FILE"
     echo '    "list": [' >> "$CONFIG_FILE"
@@ -110,7 +122,7 @@ if [ "$NEED_GENERATE" = true ]; then
     echo '  }' >> "$CONFIG_FILE"
     echo '}' >> "$CONFIG_FILE"
     
-    echo "✅ Generated new config file"
+    echo "✅ Generated new config file with model: ${PRIMARY_MODEL}"
 fi
 
 # Final validation
