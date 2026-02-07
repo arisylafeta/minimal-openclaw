@@ -54,7 +54,7 @@ validate_json() {
     return 1
 }
 
-# Check if config exists and is valid
+# Check if config exists and has required fields
 NEED_GENERATE=false
 if [ -f "$CONFIG_FILE" ]; then
     echo "🔍 DEBUG: Config file exists at $CONFIG_FILE"
@@ -63,7 +63,16 @@ if [ -f "$CONFIG_FILE" ]; then
     echo ""
     
     if validate_json "$CONFIG_FILE"; then
-        echo "✅ DEBUG: Existing config is valid JSON"
+        # Check for required fields
+        if ! grep -q '"mode"' "$CONFIG_FILE" 2>/dev/null; then
+            echo "❌ DEBUG: Config missing gateway.mode - will regenerate"
+            NEED_GENERATE=true
+        elif ! grep -q '"channels"' "$CONFIG_FILE" 2>/dev/null; then
+            echo "❌ DEBUG: Config missing channels section - will regenerate"
+            NEED_GENERATE=true
+        else
+            echo "✅ DEBUG: Existing config is valid and complete"
+        fi
     else
         echo "❌ DEBUG: Existing config is INVALID JSON - will regenerate"
         NEED_GENERATE=true
