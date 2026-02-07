@@ -95,6 +95,7 @@ if [ "$NEED_GENERATE" = true ]; then
     echo '  },' >> "$CONFIG_FILE"
     echo '  "gateway": {' >> "$CONFIG_FILE"
     echo "    \"port\": $GATEWAY_PORT," >> "$CONFIG_FILE"
+    echo '    "mode": "local",' >> "$CONFIG_FILE"
     echo "    \"bind\": \"${OPENCLAW_GATEWAY_BIND:-lan}\"," >> "$CONFIG_FILE"
     echo "    \"auth\": { \"mode\": \"token\", \"token\": \"${GATEWAY_TOKEN}\" }" >> "$CONFIG_FILE"
     echo '  },' >> "$CONFIG_FILE"
