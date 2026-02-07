@@ -1,0 +1,101 @@
+# Minimal OpenClaw Configuration
+# Removes: registry, searxng, optional CLIs, and complex tooling
+# Keeps: Core OpenClaw + Docker proxy for sandboxing
+# Note: All ports are configured via environment variables from the backend
+
+services:
+  openclaw:
+    build:
+      context: .
+    restart: on-failure:5
+    env_file:
+      - .env
+    environment:
+      # Docker proxy connection (REQUIRED)
+      DOCKER_HOST: tcp://docker-proxy:2375
+      
+      # Port configuration - set by backend PortAllocationService
+      PORT: ${OPENCLAW_GATEWAY_PORT}
+      OPENCLAW_GATEWAY_PORT: ${OPENCLAW_GATEWAY_PORT}
+      
+      # Basic OpenClaw config
+      NODE_ENV: production
+      HOME: /data
+      
+      # Workspace paths
+      OPENCLAW_STATE_DIR: ${OPENCLAW_STATE_DIR:-/data/.openclaw}
+      OPENCLAW_WORKSPACE: ${OPENCLAW_WORKSPACE:-/data/openclaw-workspace}
+      OPENCLAW_GATEWAY_BIND: ${OPENCLAW_GATEWAY_BIND:-lan}
+      
+      # Gateway authentication token - set by backend
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      
+      # AI provider API keys (at least one required)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      KIMI_API_KEY: ${KIMI_API_KEY:-}
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      
+      # Optional: Telegram bot for chat interface
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      
+      # Optional integrations (user provides what they have)
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      
+      # Optional deployment tools (user provides what they have)
+      VERCEL_TOKEN: ${VERCEL_TOKEN:-}
+      VERCEL_ORG_ID: ${VERCEL_ORG_ID:-}
+      VERCEL_PROJECT_ID: ${VERCEL_PROJECT_ID:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_USERNAME: ${GITHUB_USERNAME:-}
+      GITHUB_EMAIL: ${GITHUB_EMAIL:-}
+      
+      # Optional public access
+      CF_TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
+      
+      # Bootstrap
+      OPENCLAW_AUTO_BOOTSTRAP: "1"
+      OPENCLAW_PRINT_ACCESS: "1"
+      
+      # Container identification (set by backend)
+      CONTAINER_ID: ${CONTAINER_ID:-}
+      CONTAINER_NAME: ${CONTAINER_NAME:-}
+
+    volumes:
+      - openclaw-data:/data
+      - openclaw-workspace:/data/openclaw-workspace
+
+    depends_on:
+      - docker-proxy
+
+    command: ["bash", "/app/scripts/bootstrap.sh"]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${OPENCLAW_GATEWAY_PORT}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Minimal Docker API access for sandboxing
+      POST: 1
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      INFO: 1
+      VERSION: 1
+      EXEC: 1
+
+volumes:
+  openclaw-data:
+  openclaw-workspace:
