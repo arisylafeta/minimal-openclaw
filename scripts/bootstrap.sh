@@ -8,6 +8,11 @@ WORKSPACE_DIR="${OPENCLAW_WORKSPACE:-/data/openclaw-workspace}"
 GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
 
+echo "🔍 DEBUG: Starting bootstrap"
+echo "   CONFIG_FILE=$CONFIG_FILE"
+echo "   GATEWAY_PORT=$GATEWAY_PORT"
+echo "   GATEWAY_TOKEN=${GATEWAY_TOKEN:0:10}..."
+
 # Create directories
 mkdir -p "$OPENCLAW_STATE" "$WORKSPACE_DIR"
 chmod 700 "$OPENCLAW_STATE"
@@ -36,45 +41,85 @@ if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_
     echo "    Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, etc."
 fi
 
-# Generate config if missing (or use provided token)
-if [ ! -f "$CONFIG_FILE" ]; then
+# Function to validate JSON
+validate_json() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        if node -e "JSON.parse(require('fs').readFileSync('$file', 'utf8'))" 2>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+    return 1
+}
+
+# Check if config exists and is valid
+NEED_GENERATE=false
+if [ -f "$CONFIG_FILE" ]; then
+    echo "🔍 DEBUG: Config file exists at $CONFIG_FILE"
+    echo "🔍 DEBUG: Config contents:"
+    cat "$CONFIG_FILE"
+    echo ""
+    
+    if validate_json "$CONFIG_FILE"; then
+        echo "✅ DEBUG: Existing config is valid JSON"
+    else
+        echo "❌ DEBUG: Existing config is INVALID JSON - will regenerate"
+        NEED_GENERATE=true
+    fi
+else
+    echo "🔍 DEBUG: Config file does not exist - will generate"
+    NEED_GENERATE=true
+fi
+
+# Generate config if needed
+if [ "$NEED_GENERATE" = true ]; then
     echo "🏥 Generating openclaw.json..."
     
-    # Note: Like the original, we hardcode "enabled": true for plugins
-    # If TELEGRAM_BOT_TOKEN is not set, the plugin will fail gracefully
-    cat > "$CONFIG_FILE" <<EOF
-{
-  "commands": {
-    "native": true,
-    "text": true,
-    "bash": true,
-    "config": true
-  },
-  "plugins": {
-    "enabled": true,
-    "entries": {
-      "telegram": {
-        "enabled": true
-      }
-    }
-  },
-  "gateway": {
-    "port": ${GATEWAY_PORT},
-    "bind": "${OPENCLAW_GATEWAY_BIND:-lan}",
-    "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
-  },
-  "agents": {
-    "defaults": {
-      "workspace": "${WORKSPACE_DIR}",
-      "maxConcurrent": 2
-    },
-    "list": [
-      { "id": "main", "default": true, "workspace": "${WORKSPACE_DIR}" }
-    ]
-  }
-}
-EOF
+    # Write JSON directly without heredoc to avoid any expansion issues
+    echo '{' > "$CONFIG_FILE"
+    echo '  "commands": {' >> "$CONFIG_FILE"
+    echo '    "native": true,' >> "$CONFIG_FILE"
+    echo '    "text": true,' >> "$CONFIG_FILE"
+    echo '    "bash": true,' >> "$CONFIG_FILE"
+    echo '    "config": true' >> "$CONFIG_FILE"
+    echo '  },' >> "$CONFIG_FILE"
+    echo '  "plugins": {' >> "$CONFIG_FILE"
+    echo '    "enabled": true,' >> "$CONFIG_FILE"
+    echo '    "entries": {' >> "$CONFIG_FILE"
+    echo '      "telegram": {' >> "$CONFIG_FILE"
+    echo '        "enabled": true' >> "$CONFIG_FILE"
+    echo '      }' >> "$CONFIG_FILE"
+    echo '    }' >> "$CONFIG_FILE"
+    echo '  },' >> "$CONFIG_FILE"
+    echo '  "gateway": {' >> "$CONFIG_FILE"
+    echo "    \"port\": $GATEWAY_PORT," >> "$CONFIG_FILE"
+    echo "    \"bind\": \"${OPENCLAW_GATEWAY_BIND:-lan}\"," >> "$CONFIG_FILE"
+    echo "    \"auth\": { \"mode\": \"token\", \"token\": \"${GATEWAY_TOKEN}\" }" >> "$CONFIG_FILE"
+    echo '  },' >> "$CONFIG_FILE"
+    echo '  "agents": {' >> "$CONFIG_FILE"
+    echo '    "defaults": {' >> "$CONFIG_FILE"
+    echo "      \"workspace\": \"${WORKSPACE_DIR}\"," >> "$CONFIG_FILE"
+    echo '      "maxConcurrent": 2' >> "$CONFIG_FILE"
+    echo '    },' >> "$CONFIG_FILE"
+    echo '    "list": [' >> "$CONFIG_FILE"
+    echo "      { \"id\": \"main\", \"default\": true, \"workspace\": \"${WORKSPACE_DIR}\" }" >> "$CONFIG_FILE"
+    echo '    ]' >> "$CONFIG_FILE"
+    echo '  }' >> "$CONFIG_FILE"
+    echo '}' >> "$CONFIG_FILE"
+    
+    echo "✅ Generated new config file"
+fi
 
+# Final validation
+if validate_json "$CONFIG_FILE"; then
+    echo "✅ Final config validation passed"
+else
+    echo "❌ FATAL: Config file is still invalid after generation!"
+    echo "   Contents:"
+    cat "$CONFIG_FILE"
+    exit 1
 fi
 
 # Export state
