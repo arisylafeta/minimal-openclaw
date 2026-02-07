@@ -40,8 +40,10 @@ fi
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "🏥 Generating openclaw.json..."
     
-    # Build JSON using printf to avoid heredoc issues
-    printf '{
+    # Note: Like the original, we hardcode "enabled": true for plugins
+    # If TELEGRAM_BOT_TOKEN is not set, the plugin will fail gracefully
+    cat > "$CONFIG_FILE" <<EOF
+{
   "commands": {
     "native": true,
     "text": true,
@@ -50,34 +52,35 @@ if [ ! -f "$CONFIG_FILE" ]; then
   },
   "plugins": {
     "enabled": true,
-    "entries": {}
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
   },
   "gateway": {
-    "port": %s,
-    "bind": "%s",
-    "auth": { "mode": "token", "token": "%s" }
+    "port": ${GATEWAY_PORT},
+    "bind": "${OPENCLAW_GATEWAY_BIND:-lan}",
+    "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
   },
   "agents": {
     "defaults": {
-      "workspace": "%s",
+      "workspace": "${WORKSPACE_DIR}",
       "maxConcurrent": 2
     },
     "list": [
-      { "id": "main", "default": true, "workspace": "%s" }
+      { "id": "main", "default": true, "workspace": "${WORKSPACE_DIR}" }
     ]
   }
-}' "$GATEWAY_PORT" "${OPENCLAW_GATEWAY_BIND:-lan}" "$GATEWAY_TOKEN" "$WORKSPACE_DIR" "$WORKSPACE_DIR" > "$CONFIG_FILE"
+}
+EOF
 
 fi
-
-# Debug: Show generated config
-echo "📄 Generated config:"
-cat "$CONFIG_FILE"
-echo ""
 
 # Export state
 export OPENCLAW_STATE_DIR="$OPENCLAW_STATE"
 
+echo ""
 echo "=================================================================="
 echo "🦞 Minimal OpenClaw is ready!"
 echo "=================================================================="
