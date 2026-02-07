@@ -36,6 +36,12 @@ if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_
     echo "    Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, etc."
 fi
 
+# Determine telegram enabled state
+TELEGRAM_ENABLED="false"
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+    TELEGRAM_ENABLED="true"
+fi
+
 # Generate config if missing (or use provided token)
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "🏥 Generating openclaw.json..."
@@ -52,27 +58,31 @@ if [ ! -f "$CONFIG_FILE" ]; then
     "enabled": true,
     "entries": {
       "telegram": {
-        "enabled": ${TELEGRAM_BOT_TOKEN:+true}${TELEGRAM_BOT_TOKEN:-false}
+        "enabled": ${TELEGRAM_ENABLED}
       }
     }
   },
   "gateway": {
-    "port": $GATEWAY_PORT,
+    "port": ${GATEWAY_PORT},
     "bind": "${OPENCLAW_GATEWAY_BIND:-lan}",
-    "auth": { "mode": "token", "token": "$GATEWAY_TOKEN" }
+    "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
   },
   "agents": {
     "defaults": {
-      "workspace": "$WORKSPACE_DIR",
+      "workspace": "${WORKSPACE_DIR}",
       "maxConcurrent": 2
     },
     "list": [
-      { "id": "main", "default": true, "workspace": "$WORKSPACE_DIR" }
+      { "id": "main", "default": true, "workspace": "${WORKSPACE_DIR}" }
     ]
   }
 }
 EOF
 fi
+
+# Debug: Show generated config
+echo "📄 Generated config:"
+cat "$CONFIG_FILE"
 
 # Export state
 export OPENCLAW_STATE_DIR="$OPENCLAW_STATE"
