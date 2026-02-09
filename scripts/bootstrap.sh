@@ -91,7 +91,7 @@ if [ "$NEED_GENERATE" = true ]; then
     if [ -n "$ANTHROPIC_API_KEY" ]; then
         PRIMARY_MODEL="anthropic/claude-sonnet-4-5"
     elif [ -n "$OPENAI_API_KEY" ]; then
-        PRIMARY_MODEL="openai/gpt-4o"
+        PRIMARY_MODEL="openai/gpt-5.2"
     elif [ -n "$GEMINI_API_KEY" ]; then
         PRIMARY_MODEL="google/gemini-2.5-pro"
     fi
