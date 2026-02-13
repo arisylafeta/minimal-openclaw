@@ -10,8 +10,8 @@ services:
     build:
       context: .
     restart: on-failure:5
-    expose:
-      - "${OPENCLAW_GATEWAY_PORT}"
+    ports:
+      - "${OPENCLAW_GATEWAY_PORT}:${OPENCLAW_GATEWAY_PORT}"
     env_file:
       - .env
     environment:
