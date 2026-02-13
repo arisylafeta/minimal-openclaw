@@ -1,13 +1,17 @@
 # Minimal OpenClaw Configuration
 # Removes: registry, searxng, optional CLIs, and complex tooling
 # Keeps: Core OpenClaw + Docker proxy for sandboxing
-# Note: All ports are configured via environment variables from the backend
+#
+# Access via Tailscale backend proxy only - no public port exposure
+# Backend connects to: http://{tailscale-ip}:{port}
 
 services:
   openclaw:
     build:
       context: .
     restart: on-failure:5
+    expose:
+      - "${OPENCLAW_GATEWAY_PORT}"
     env_file:
       - .env
     environment:
