@@ -70,8 +70,14 @@ services:
       CONTAINER_NAME: ${CONTAINER_NAME:-}
 
     volumes:
-      - openclaw-data:/data
-      - openclaw-workspace:/data/openclaw-workspace
+      - type: bind
+        source: /data/coolify/applications/${CONTAINER_ID}/data
+        target: /data
+        is_directory: true
+      - type: bind
+        source: /data/coolify/applications/${CONTAINER_ID}/workspace
+        target: /data/openclaw-workspace
+        is_directory: true
 
     depends_on:
       - docker-proxy
@@ -100,6 +106,4 @@ services:
       VERSION: 1
       EXEC: 1
 
-volumes:
-  openclaw-data:
-  openclaw-workspace:
+
