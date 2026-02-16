@@ -7,6 +7,14 @@ CONFIG_FILE="$OPENCLAW_STATE/openclaw.json"
 WORKSPACE_DIR="${OPENCLAW_WORKSPACE:-/data/openclaw-workspace}"
 GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
+ROUTING_MODE="${OPENCLAW_MODEL_ROUTING_MODE:-byo}"
+ROUTER_BASE_URL="${EASYCLAW_MODEL_ROUTER_BASE_URL:-}"
+ROUTER_API_KEY="${EASYCLAW_MODEL_ROUTER_API_KEY:-}"
+ROUTER_PROVIDER_ID="${EASYCLAW_ROUTER_PROVIDER_ID:-easyclaw-router}"
+ROUTER_MODEL_ID="${EASYCLAW_ROUTER_MODEL_ID:-gpt-5.2}"
+ROUTER_USER_ID="${EASYCLAW_BILLING_USER_ID:-}"
+ROUTER_APPLICATION_ID="${EASYCLAW_BILLING_APPLICATION_ID:-}"
+ROUTER_PROVIDER_MODEL_ID="${EASYCLAW_PROVIDER_MODEL_ID:-}"
 
 echo "🔍 DEBUG: Starting bootstrap"
 echo "   CONFIG_FILE=$CONFIG_FILE"
@@ -34,11 +42,18 @@ if [ -z "$GATEWAY_TOKEN" ]; then
 fi
 
 # Validate that at least one AI provider key is set
-if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_KEY" ] && \
-   [ -z "$MINIMAX_API_KEY" ] && [ -z "$KIMI_API_KEY" ] && [ -z "$OPENCODE_API_KEY" ] && \
-   [ -z "$MOONSHOT_API_KEY" ]; then
-    echo "⚠️  Warning: No AI provider API key detected. OpenClaw will not be able to process AI requests."
-    echo "    Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, etc."
+if [ "$ROUTING_MODE" = "platform" ]; then
+    if [ -z "$ROUTER_BASE_URL" ] || [ -z "$ROUTER_API_KEY" ]; then
+        echo "❌ platform routing mode requires EASYCLAW_MODEL_ROUTER_BASE_URL and EASYCLAW_MODEL_ROUTER_API_KEY"
+        exit 1
+    fi
+else
+    if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_KEY" ] && \
+       [ -z "$MINIMAX_API_KEY" ] && [ -z "$KIMI_API_KEY" ] && [ -z "$OPENCODE_API_KEY" ] && \
+       [ -z "$MOONSHOT_API_KEY" ]; then
+        echo "⚠️  Warning: No AI provider API key detected. OpenClaw will not be able to process AI requests."
+        echo "    Set at least one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, etc."
+    fi
 fi
 
 # Function to validate JSON
@@ -88,7 +103,9 @@ if [ "$NEED_GENERATE" = true ]; then
     
     # Determine primary model based on available API keys
     PRIMARY_MODEL="openai/gpt-4o"
-    if [ -n "$ANTHROPIC_API_KEY" ]; then
+    if [ "$ROUTING_MODE" = "platform" ]; then
+        PRIMARY_MODEL="${ROUTER_PROVIDER_ID}/${ROUTER_MODEL_ID}"
+    elif [ -n "$ANTHROPIC_API_KEY" ]; then
         PRIMARY_MODEL="anthropic/claude-sonnet-4-5"
     elif [ -n "$OPENAI_API_KEY" ]; then
         PRIMARY_MODEL="openai/gpt-5.2"
@@ -123,6 +140,26 @@ if [ "$NEED_GENERATE" = true ]; then
     echo "    \"bind\": \"${OPENCLAW_GATEWAY_BIND:-lan}\"," >> "$CONFIG_FILE"
     echo "    \"auth\": { \"mode\": \"token\", \"token\": \"${GATEWAY_TOKEN}\" }" >> "$CONFIG_FILE"
     echo '  },' >> "$CONFIG_FILE"
+    if [ "$ROUTING_MODE" = "platform" ]; then
+        echo '  "models": {' >> "$CONFIG_FILE"
+        echo '    "mode": "merge",' >> "$CONFIG_FILE"
+        echo '    "providers": {' >> "$CONFIG_FILE"
+        echo "      \"${ROUTER_PROVIDER_ID}\": {" >> "$CONFIG_FILE"
+        echo "        \"baseUrl\": \"${ROUTER_BASE_URL}\"," >> "$CONFIG_FILE"
+        echo '        "api": "openai-completions",' >> "$CONFIG_FILE"
+        echo "        \"apiKey\": \"${ROUTER_API_KEY}\"," >> "$CONFIG_FILE"
+        echo '        "headers": {' >> "$CONFIG_FILE"
+        echo "          \"x-easyclaw-user-id\": \"${ROUTER_USER_ID}\"," >> "$CONFIG_FILE"
+        echo "          \"x-easyclaw-application-id\": \"${ROUTER_APPLICATION_ID}\"," >> "$CONFIG_FILE"
+        echo "          \"x-easyclaw-provider-model-id\": \"${ROUTER_PROVIDER_MODEL_ID}\"" >> "$CONFIG_FILE"
+        echo '        },' >> "$CONFIG_FILE"
+        echo '        "models": [' >> "$CONFIG_FILE"
+        echo "          { \"id\": \"${ROUTER_MODEL_ID}\", \"name\": \"${ROUTER_MODEL_ID}\" }" >> "$CONFIG_FILE"
+        echo '        ]' >> "$CONFIG_FILE"
+        echo '      }' >> "$CONFIG_FILE"
+        echo '    }' >> "$CONFIG_FILE"
+        echo '  },' >> "$CONFIG_FILE"
+    fi
     echo '  "agents": {' >> "$CONFIG_FILE"
     echo '    "defaults": {' >> "$CONFIG_FILE"
     echo "      \"workspace\": \"${WORKSPACE_DIR}\"," >> "$CONFIG_FILE"
